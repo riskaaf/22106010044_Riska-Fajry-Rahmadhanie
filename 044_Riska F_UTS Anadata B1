@@ -1,0 +1,141 @@
+#22106010044_Riska F R_UTS Anadata B1
+#044_2b Read in ur Data
+getwd()
+setwd("D:/Andat")
+#install.packages("readr")
+library(readr)
+datadepresi=read.csv2("data uts depression anxiety.csv",sep=";", header=TRUE)
+datadepresi
+names(datadepresi)=make.names(names(datadepresi))
+head(datadepresi)
+
+#044_2c Check the Packaging
+nrow(datadepresi)#jumlah baris(observasi)
+ncol(datadepresi)#jumlah kolom(variabel)
+str(datadepresi)
+summary(datadepresi)
+
+#044_2d Look at the Top and the Bottom Data
+head(datadepresi[, c(1, 2)])
+tail(datadepresi[, c(1, 2)])
+head(datadepresi$phq.score)
+head(datadepresi$depression.diagnosis)
+tail(datadepresi$phq.score)
+tail(datadepresi$depression.diagnosis)
+
+#044_2e Check ur "N" s
+cleaned_data=datadepresi[!is.na(datadepresi$depression.diagnosis),]
+cleaned_data
+select(cleaned_data, depression.diagnosis) %>% unique %>% nrow
+unique(cleaned_data$depression.diagnosis)
+table(cleaned_data$depression.diagnosis)
+select(cleaned_data, phq.score) %>% unique %>% nrow
+unique(cleaned_data$phq.score)
+table(cleaned_data$phq.score)
+#install.packages("dplyr")
+library(dplyr)
+filter(cleaned_data, depression.diagnosis == "TRUE") %>%
+  select(phq.score) %>%
+  as.data.frame
+
+#044_2f Validate With at Least One External Data Source
+summary(cleaned_data$phq.score)
+quantile(cleaned_data$phq.score, seq(0,1,0.1))
+summary(cleaned_data$depression.diagnosis, na.rm = TRUE)
+quantile(cleaned_data$depression.diagnosis, seq(0, 1, 0.1), 
+         na.rm = TRUE)
+
+#044_2g Make a Plot
+library(ggplot2)
+ggplot(cleaned_data, aes(x=phq.score, y=depression.diagnosis)) +geom_boxplot() +
+  labs(title = "Boxplot of Depression Diagnosis by PHQ score",
+     x = "PHQ score",
+     y = "Depression diagnosis")
+
+#044_2h Try the Easy Solution First
+cleaned_data$depression.diagnosis_num = ifelse(cleaned_data$depression.diagnosis == TRUE, 1, 0)
+cleaned_data$depression.diagnosis_num
+cleaned_data$beda = factor(ifelse(cleaned_data$depression.diagnosis >= 1, "TRUE", "FALSE"))
+cleaned_data$beda
+cleaned_data %>%
+  group_by(beda) %>%
+  summarize(
+    mean = mean(depression.diagnosis_num, na.rm = TRUE),
+    median = median(depression.diagnosis_num, na.rm = TRUE))
+ggplot(cleaned_data, aes(phq.score,depression.diagnosis))+
+  geom_abline(colour="navy")
+R=cleaned_data %>%
+  filter(depression.diagnosis == TRUE ) %>%
+  select(phq.score, depression.diagnosis) %>%
+  as.data.frame()
+R$beda = factor(ifelse(R$phq.score < 10, "yes", "no"))
+R$beda
+jumlah_beda = table(R$beda)
+print(jumlah_beda)
+group_by(R, beda) %>%
+  summarize(mean = mean(phq.score, na.rm = TRUE),
+            median = median(phq.score, na.rm = TRUE))
+cleaned_data$beda = factor(ifelse(cleaned_data$phq.score < 10, "yes", "no"))
+cleaned_data$beda
+ggplot(cleaned_data, aes(x = beda, fill = depression.diagnosis)) +
+  geom_bar(position = "fill") +
+  labs(title = "Besar Tingkat Keparahan Depresi berdasarkan Kategori Nilai PHQ Skor", 
+       x = "Kategori Nilai", y = "Besar") +
+  scale_y_continuous(labels = scales::percent_format())
+cleaned_data$beda <- factor(ifelse(cleaned_data$phq.score < 10, "yes", "no"))
+cleaned_data
+
+#044_2i Follow Up
+y=cleaned_data$depression.diagnosis
+x=cleaned_data$phq.score
+lm(y~x, data=cleaned_data)
+model=lm(y~x)
+summary(model)
+anova(model)
+
+#044_3a Models as a Expectation
+cleaned_data <- cleaned_data %>%
+  mutate(depression_logical = depression.diagnosis == 1) %>%  # TRUE jika diagnosed
+  filter(!is.na(phq.score) & !is.na(depression.diagnosis))  # Menghilangkan missing data
+cleaned_data
+model=glm(depression.diagnosis ~ phq.score, data = cleaned_data, family = "binomial")
+summary(model)
+#Menghitung rata-rata dan simpangan baku dari skor PHQ
+mean_phq <- mean(cleaned_data$phq.score, na.rm = TRUE)
+sd_phq <- sd(cleaned_data$phq.score, na.rm = TRUE)
+mean_phq
+sd_phq
+#Membuat histogram dari skor PHQ dengan overlay distribusi Normal
+library(ggplot2)
+ggplot(cleaned_data, aes(x = phq.score)) +
+  geom_histogram(aes(y = ..density..), bins = 20, fill = "skyblue", color = "brown", alpha = 0.7) +
+  stat_function(fun = dnorm, args = list(mean = mean_phq, sd = sd_phq), color = "purple", size = 1) +
+  labs(title = "Distribusi Skor PHQ dengan Model Normal",
+       x = "Skor PHQ",
+       y = "Kepadatan") +
+  theme_minimal()
+#Menghitung proporsi populasi dengan skor PHQ lebih dari 10
+prop_above_10 <- pnorm(10, mean = mean_phq, sd = sd_phq, lower.tail = FALSE)
+prop_above_10
+
+#o44_3b Comparing Model Expectations to Reality
+phq.score_plot <- ggplot(cleaned_data, aes(x = phq.score, fill = depression.diagnosis)) +
+  geom_histogram(aes(y = ..density..), position = "identity", binwidth = 1, alpha = 0.5, color = "navy") +
+  stat_function(fun = dnorm, args = list(mean = mean(cleaned_data$phq.score, na.rm = TRUE), 
+                                         sd = sd(cleaned_data$phq.score, na.rm = TRUE)), 
+                color = "purple", size = 1) +
+  scale_fill_manual(values = c("0" = "lightgreen", "1" = "brown")) +
+  labs(title = "distribusi PHQ score dengan kurva normal dan diagnosa depresi",
+       x = "PHQ score",
+       y = "kepadatan",
+       fill = "diagnosis depresi") +
+  theme_minimal()
+phq.score_plot
+normal_data=rnorm(n = nrow(cleaned_data), mean = mean(cleaned_data$depression_logical, na.rm = TRUE), 
+                     sd = sd(cleaned_data$depression_logical, na.rm = TRUE))
+ggplot(data.frame(normal_data), aes(x = normal_data)) +
+  geom_histogram(binwidth = 0.1, fill = "khaki", color = "brown") +
+  labs(title = "histogram distribusi normal",
+       x = "nilai (berdistribusi normal)",
+       y = "frekuensi") +
+  theme_minimal()
