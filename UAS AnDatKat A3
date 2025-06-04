@@ -1,0 +1,83 @@
+#22106010044_Riska Fajry R_UAS AnDatKat A3
+# = 1.Load Library =
+library(tidyverse)
+library(car)
+library(pscl)
+library(ResourceSelection)
+library(pROC)
+library(caret)
+library(corrplot)
+library(ggplot2)
+# = 2.Membaca dan Mempersiapkan Data =
+getwd()
+setwd("D:/Arsip Smt 6/AnDatKat")
+data <- read.csv("data uas fix.csv", sep = ",", header = TRUE)
+head(data)
+##Membersihkan Nama Kolom
+colnames(data) = make.names(trimws(colnames(data)))
+names(data)
+##Mengubah Target: Kolom ke-2 menjadi Y
+data_clean = data %>%
+  select(-Fakultas)  # Hilangkan kolom Fakultas
+##Mengganti Nama Kolom Target (kolom pertama) jadi 'Y'
+names(data_clean)[1] <- "Y"
+##Mengonversi Target: "Puas" = 1, "Tidak Puas" = 0
+data_clean = data_clean %>%
+  mutate(Y = ifelse(Y == "Puas", 1, 0))
+##Mengecek Hasil
+table(data_clean$Y)
+prop.table(table(data_clean$Y))
+##Mengganti Nama Kolom Prediktor jadi X1, X2, ..., Xn
+predictor_names = setdiff(names(data_clean), "Y")
+names(data_clean)[names(data_clean) != "Y"] <- paste0("X", 1:length(predictor_names))
+##Mengonversi Semua Prediktor jadi Faktor ===
+data_model = data_clean %>%
+  mutate(across(-Y, as.factor))
+head(data_model)
+# = 3.Membuat Model Regresi Logistik =
+model = glm(Y ~ ., family = "binomial", data = data_model)
+summary(model)
+# = 4.Pseudo R-squared =
+pR2(model)
+# = 5.Odds Ratio dan Confidence Interval =
+beta = coef(model)
+OR = exp(beta)
+CI = exp(confint.default(model))
+cbind(beta, OR, CI)
+# = 6.Confusion Matrix =
+predicted_probs = predict(model, type = "response")
+predicted_class = ifelse(predicted_probs > 0.5, 1, 0)
+actual_class = data_model$Y
+confusionMatrix(factor(predicted_class), factor(data_model$Y))
+# = 7.Hosmer-Lemeshow Test =
+hoslem.test(data_model$Y, predicted_probs)
+# = 8.ROC Curve dan AUC =
+roc_obj = roc(data_model$Y, predicted_probs)
+plot(roc_obj, col = "navy", main = "ROC Curve")
+auc(roc_obj)
+# = 9.Korelasi Antar Prediktor (Visual) =
+data_num = data_model %>% mutate(across(everything(), ~as.numeric(.)))
+cor_mat = cor(data_num[ , -which(names(data_num) == "Y")])
+corrplot(cor_mat, method = "color", addCoef.col = "purple", tl.cex = 0.8)
+# = 10.VIF untuk Cek Multikolinearitas =
+vif(model)
+# = 11.Menampilkan Persamaan Regresi Logistik =
+coefs = round(coef(model), 4)
+equation = paste("logit(p) =",
+                  paste0(names(coefs), " * ", coefs, collapse = " + "))
+cat("Persamaan Regresi Logistik:\n", equation)
+# = 12.Visualisasi Probabilitas terhadap Y (Boxplot) =
+data_model$prob = predicted_probs
+ggplot(data_model, aes(x = as.factor(Y), y = prob)) +
+  geom_boxplot(fill = "brown") +
+  labs(title = "Predicted Probability vs Actual Y", x = "Actual Y", y = "Predicted Probability")
+# = 13.Visualisasi Probabilitas berdasarkan Setiap Prediktor =
+for (x in names(data_model)[grepl("^X", names(data_model))]) {
+  print(
+    ggplot(data_model, aes_string(x = x, y = 'prob')) +
+      geom_boxplot(fill = 'darkgreen') +
+      labs(title = paste("Probabilitas Prediksi Berdasarkan", x),
+           y = "Probabilitas", x = x) +
+      theme_minimal()
+  )
+}
