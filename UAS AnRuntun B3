@@ -1,0 +1,48 @@
+#22106010044_Riska F R_UAS AnRunWaktu B3
+# = 1.Load Library =
+library(tidyverse)
+library(forecast)
+library(tseries)
+# = 2.Import Data =
+getwd()
+setwd("D:/Arsip Smt 6/AnRuntun")
+data = read.csv("data cctv.csv", , sep = ",", header = TRUE)
+head(data)
+# = 3.Mengubah Data Menjadi Time Series =
+ts_data = ts(data$Jumlah.Mobil, frequency = 1)  #Mengasumsikan 1 pengamatan per hari
+ts_data
+# = 4.Plot Time Series =
+plot(ts_data, main = "Time Series Jumlah Mobil Roda 4", ylab = "Jumlah Mobil", xlab = "Hari", col = "darkblue")
+# = 5.Plot ACF & PACF =
+acf(ts_data, main = "Autocorrelation (ACF)")
+pacf(ts_data, main = "Partial Autocorrelation (PACF)")
+# = 6.Uji Kestasioneran (ADF Test) =
+adf.test(ts_data)
+# = 7.Model AR (Autoregressive) =
+model_ar = arima(ts_data, order = c(1,0,0))
+summary(model_ar)
+# = 8.Model MA (Moving Average) =
+model_ma = arima(ts_data, order = c(0,0,1))
+summary(model_ma)
+# = 9.Model ARMA (gabungan AR dan MA) =
+model_arma = arima(ts_data, order = c(1,0,1))
+summary(model_arma)
+# = 10.Model ARIMA (jika tidak stasioner, pakai d=1) =
+model_arima = auto.arima(ts_data)
+summary(model_arima)
+# = 11.Memilih Model Terbaik (berdasarkan AIC) =
+AIC(model_ar, model_ma, model_arma, model_arima)
+# = 12.Plot Data Asli, Fitted dan Forecast =
+best_model = model_arima  
+best_model
+##Fitted Values
+fitted_values = fitted(best_model)
+fitted_values
+##Forecast ke Depan (misal 7 hari)
+forecast_values = forecast(best_model, h = 7)
+##Plot
+plot(forecast_values, main = "Forecast Jumlah Mobil", xlab = "Hari", ylab = "Jumlah Mobil", col = "brown")
+lines(ts_data, col = "purple", lwd = 2)
+lines(fitted_values, col = "darkgreen", lty = 2)
+legend("topleft", legend = c("Data Asli", "Fitted", "Forecast"),
+       col = c("purple", "darkgreen", "brown"), lty = c(1,2,1), bty = "n")
